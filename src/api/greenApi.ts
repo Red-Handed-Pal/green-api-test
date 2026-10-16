@@ -3,6 +3,8 @@ import type { Credentials } from '../types.ts'
 const API_URL = 'https://api.green-api.com'
 // GET and DELETE calls are retried on network errors; the API is occasionally slow to connect
 const NETWORK_ATTEMPTS = 3
+// For unknown idInstance the API accepts the connection and never answers
+const LOGIN_TIMEOUT_MS = 25000
 
 export type StateInstance =
   | 'authorized'
@@ -64,6 +66,10 @@ type RequestOptions = {
   method?: Method
   body?: unknown
   signal?: AbortSignal
+  /** Give up on a single attempt after this many milliseconds. */
+  timeoutMs?: number
+  /** Overrides the default number of attempts. */
+  attempts?: number
 }
 
 const describeStatus = (status: number): string => {
@@ -89,17 +95,32 @@ export const createGreenApi = ({ idInstance, apiTokenInstance }: Credentials) =>
 
   const request = async <T>(
     url: string,
-    { method = 'GET', body, signal }: RequestOptions = {},
+    {
+      method = 'GET',
+      body,
+      signal,
+      timeoutMs,
+      attempts: requestedAttempts,
+    }: RequestOptions = {},
   ): Promise<T | null> => {
     // POST is not retried: a lost response could otherwise send a message twice
-    const attempts = method === 'POST' ? 1 : NETWORK_ATTEMPTS
+    const attempts =
+      requestedAttempts ?? (method === 'POST' ? 1 : NETWORK_ATTEMPTS)
     let response: Response | null = null
 
     for (let attempt = 1; attempt <= attempts && !response; attempt++) {
+      const attemptSignal = timeoutMs
+        ? AbortSignal.any(
+            signal
+              ? [signal, AbortSignal.timeout(timeoutMs)]
+              : [AbortSignal.timeout(timeoutMs)],
+          )
+        : signal
+
       try {
         response = await fetch(url, {
           method,
-          signal,
+          signal: attemptSignal,
           headers: body ? { 'Content-Type': 'application/json' } : undefined,
           body: body ? JSON.stringify(body) : undefined,
         })
@@ -125,7 +146,7 @@ export const createGreenApi = ({ idInstance, apiTokenInstance }: Credentials) =>
   const getStateInstance = async (signal?: AbortSignal) => {
     const result = await request<{ stateInstance: StateInstance }>(
       buildUrl('getStateInstance'),
-      { signal },
+      { signal, timeoutMs: LOGIN_TIMEOUT_MS, attempts: 1 },
     )
     if (!result) throw new GreenApiError('Пустой ответ сервера')
     return result.stateInstance

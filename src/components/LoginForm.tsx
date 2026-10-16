@@ -6,6 +6,16 @@ type LoginFormProps = {
   onLogin: (credentials: Credentials) => void
 }
 
+// GREEN-API answers wrong credentials with 403 and no CORS headers, so the
+// browser reports it as a network failure (no status) rather than a 403.
+const describeLoginError = (error: unknown) => {
+  if (!(error instanceof GreenApiError)) return 'Не удалось войти'
+  if (error.status === null) {
+    return 'Не удалось подключиться. Проверьте idInstance и apiTokenInstance, а также интернет-соединение.'
+  }
+  return error.message
+}
+
 export const LoginForm = ({ onLogin }: LoginFormProps) => {
   const [idInstance, setIdInstance] = useState('')
   const [apiTokenInstance, setApiTokenInstance] = useState('')
@@ -31,9 +41,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
       }
       onLogin(credentials)
     } catch (caught) {
-      setError(
-        caught instanceof GreenApiError ? caught.message : 'Не удалось войти',
-      )
+      setError(describeLoginError(caught))
     } finally {
       setIsChecking(false)
     }
