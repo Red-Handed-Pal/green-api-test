@@ -4,6 +4,8 @@
 
 Стек: React 19, TypeScript, Vite. Дополнительных библиотек нет.
 
+Онлайн-версия: https://red-handed-pal.github.io/green-api-test/
+
 ## Что умеет
 
 - Вход по `idInstance` и `apiTokenInstance` из личного кабинета GREEN-API (проверяется состояние инстанса `authorized`).
@@ -36,6 +38,10 @@ npm run build     # проверка типов и production-сборка в di
 npm run preview   # локальный просмотр сборки
 npm run lint      # oxlint
 ```
+
+## Деплой
+
+Сайт публикуется на GitHub Pages workflow-ом [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml): при каждом пуше в `master` запускаются `npm ci`, `npm run lint`, `npm run build`, после чего папка `dist` выкладывается на Pages. В репозитории в **Settings → Pages → Source** должен быть выбран **GitHub Actions**. Базовый путь `/green-api-test/` включается только в CI (переменная `GITHUB_ACTIONS`), локально приложение работает с корня.
 
 ## Как пользоваться
 
